@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASO Level0 Converter — Essbase columns, in your browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1220;
+    --panel: #121B2E;
+    --panel-2: #16223B;
+    --border: #223154;
+    --border-soft: #1B2740;
+    --text: #E7ECF5;
+    --text-dim: #90A0BE;
+    --text-faint: #5B6C8C;
+    --amber: #E8A33D;
+    --amber-dim: #6B4E22;
+    --teal: #5EEAD4;
+    --success: #7FD8A4;
+    --error: #F2696B;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.5;
+  }
+
+  body {
+    background-image:
+      linear-gradient(180deg, rgba(94,234,212,0.04), transparent 40%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 88px);
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  /* ---------- Header ---------- */
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 18px;
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 8px var(--teal);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(32px, 5vw, 44px);
+    line-height: 1.08;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  h1 .accent { color: var(--amber); }
+
+  .lede {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 620px;
+    margin: 0 0 40px;
+  }
+
+  /* ---------- Signature: token -> column strip ---------- */
+
+  .signature {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 48px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .signature-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+  }
+
+  .sig-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+
+  .sig-raw {
+    color: var(--text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .sig-token {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text-dim);
+    margin: 0 2px;
+  }
+
+  .sig-arrow {
+    color: var(--text-faint);
+    flex: 0 0 auto;
+  }
+
+  .sig-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .sig-col {
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 12px;
+    border: 1px solid;
+    animation: settle 2.8s ease-in-out infinite;
+  }
+
+  .sig-col:nth-child(1) { border-color: #3a4c78; background: rgba(94,234,212,0.08); color: var(--teal); animation-delay: 0s; }
+  .sig-col:nth-child(2) { border-color: #3a4c78; background: rgba(94,234,212,0.08); color: var(--teal); animation-delay: .15s; }
+  .sig-col:nth-child(3) { border-color: #3a4c78; background: rgba(94,234,212,0.08); color: var(--teal); animation-delay: .3s; }
+  .sig-col:nth-child(4) { border-color: var(--amber-dim); background: rgba(232,163,61,0.1); color: var(--amber); animation-delay: .45s; }
+  .sig-col:nth-child(5) { border-color: var(--amber-dim); background: rgba(232,163,61,0.1); color: var(--amber); animation-delay: .6s; }
+
+  @keyframes settle {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(-3px); opacity: 0.75; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sig-col { animation: none; }
+  }
+
+  /* ---------- Sections ---------- */
+
+  section { margin-bottom: 40px; }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    margin: 0 0 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .section-title .step-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  .section-help {
+    font-size: 13px;
+    color: var(--text-faint);
+    margin: 0 0 16px;
+  }
+
+  /* ---------- Dropzones ---------- */
+
+  .dropzones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 640px) {
+    .dropzones { grid-template-columns: 1fr; }
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+    padding: 22px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .dropzone:hover, .dropzone:focus-visible {
+    border-color: var(--teal);
+    background: var(--panel-2);
+  }
+
+  .dropzone.has-files {
+    border-color: var(--amber);
+    border-style: solid;
+  }
+
+  .dropzone.drag-over {
+    border-color: var(--teal);
+    background: rgba(94,234,212,0.06);
+  }
+
+  .dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .dz-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+
+  .dz-title {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .dz-detail {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    word-break: break-all;
+  }
+
+  .dz-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+    color: var(--text-faint);
+  }
+
+  .dropzone.has-files .dz-icon { color: var(--amber); }
+
+  /* ---------- Options ---------- */
+
+  .options {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+  }
+
+  @media (max-width: 640px) {
+    .options { grid-template-columns: 1fr; }
+  }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .field .hint {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-top: 5px;
+    line-height: 1.4;
+  }
+
+  .field input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 7px;
+    padding: 9px 11px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .field input[type="text"]:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+  }
+
+  .field.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .field.checkbox label { margin-bottom: 0; }
+
+  .field.checkbox input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--amber);
+  }
+
+  /* ---------- Action ---------- */
+
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  button.primary {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 15px;
+    background: var(--amber);
+    color: #1A1204;
+    border: none;
+    border-radius: 8px;
+    padding: 13px 26px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+  }
+
+  button.primary:hover:not(:disabled) {
+    box-shadow: 0 0 0 3px rgba(232,163,61,0.25);
+  }
+
+  button.primary:active:not(:disabled) { transform: scale(0.98); }
+
+  button.primary:disabled {
+    background: var(--border-soft);
+    color: var(--text-faint);
+    cursor: not-allowed;
+  }
+
+  button.secondary {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 14px;
+    background: transparent;
+    color: var(--teal);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 20px;
+    cursor: pointer;
+  }
+
+  button.secondary:hover { border-color: var(--teal); }
+
+  .progress-wrap {
+    flex: 1 1 220px;
+    min-width: 180px;
+  }
+
+  .progress-track {
+    height: 8px;
+    background: var(--border-soft);
+    border-radius: 5px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-track.active { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--teal), var(--amber));
+    transition: width 0.2s ease-out;
+  }
+
+  .progress-text {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-top: 6px;
+    display: none;
+  }
+
+  .progress-text.active { display: block; }
+
+  /* ---------- Results ---------- */
+
+  .results {
+    display: none;
+  }
+
+  .results.visible { display: block; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 640px) {
+    .stat-row { grid-template-columns: 1fr; }
+  }
+
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--amber);
+  }
+
+  .stat-label {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+
+  .log-panel {
+    background: #08101F;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    margin-bottom: 18px;
+  }
+
+  .log-panel .warn { color: var(--amber); }
+  .log-panel .err { color: var(--error); }
+
+  .downloads {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .error-banner {
+    display: none;
+    background: rgba(242,105,107,0.1);
+    border: 1px solid var(--error);
+    color: var(--error);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    margin-bottom: 18px;
+    font-family: var(--font-mono);
+  }
+
+  .error-banner.visible { display: block; }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-soft);
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+
+  footer .privacy {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: var(--text-dim);
+  }
+
+  footer .privacy::before {
+    content: '🔒';
+    font-size: 13px;
+  }
+
+  a { color: var(--teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Runs entirely in your browser</div>
+  <h1>Turn an Essbase export<br>into <span class="accent">clean columns</span>.</h1>
+  <p class="lede">
+    Upload your ASO Level0 backup file and your dimension metadata extracts.
+    This converts the native, quote-delimited Essbase export into a flat,
+    relational file — one row per real value, correctly paired with its
+    period — plus a run log. Nothing is uploaded to a server; the file never
+    leaves this tab.
+  </p>
+
+  <div class="signature" aria-hidden="true">
+    <div class="signature-label">what it does</div>
+    <div class="sig-row">
+      <span class="sig-raw">"YH_IP_Cases" #Missing 11 11</span>
+      <span class="sig-arrow">→</span>
+      <span class="sig-grid">
+        <span class="sig-col">Measure</span>
+        <span class="sig-col">Period</span>
+        <span class="sig-col">Value</span>
+      </span>
+    </div>
+  </div>
+
+  <section>
+    <p class="section-title"><span class="step-num">01</span> Add your files</p>
+    <p class="section-help">The Level0 export on the left, every dimension file (Account.txt, Entity.txt, etc.) on the right.</p>
+    <div class="dropzones">
+      <div class="dropzone" id="dz-data" tabindex="0">
+        <div class="dz-icon">▤</div>
+        <div class="dz-label">Data file</div>
+        <div class="dz-title">ASO Level0 backup export</div>
+        <div class="dz-detail" id="dz-data-detail">Click or drop a single .txt file</div>
+        <input type="file" id="input-data" accept=".txt,.csv">
+      </div>
+      <div class="dropzone" id="dz-dims" tabindex="0">
+        <div class="dz-icon">▥</div>
+        <div class="dz-label">Dimension files</div>
+        <div class="dz-title">One file per dimension</div>
+        <div class="dz-detail" id="dz-dims-detail">Click or drop multiple .txt files</div>
+        <input type="file" id="input-dims" accept=".txt,.csv" multiple>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-title"><span class="step-num">02</span> Options</p>
+    <p class="section-help">Defaults match the original tool. Leave as-is unless you need to filter or reshape the output.</p>
+    <div class="options">
+      <div class="field">
+        <label for="opt-delimiter">Delimiter</label>
+        <input type="text" id="opt-delimiter" value="\s">
+        <span class="hint">Field separator in the output. <code>\s</code> becomes an actual space. Try <code>|</code>, <code>,</code>, or <code>;</code>.</span>
+      </div>
+      <div class="field">
+        <label for="opt-extract">Data to extract</label>
+        <input type="text" id="opt-extract" placeholder="e.g. Budget,Forecast">
+        <span class="hint">Comma-separated members to keep. Same dimension = OR'd; different dimensions = AND'd. Leave blank for everything.</span>
+      </div>
+      <div class="field">
+        <label for="opt-filter">Member filter</label>
+        <input type="text" id="opt-filter" placeholder="e.g. General Surgery">
+        <span class="hint">Simple substring filter on each output row. Leave blank for no filtering.</span>
+      </div>
+      <div class="field checkbox">
+        <input type="checkbox" id="opt-drop-missing">
+        <label for="opt-drop-missing">Drop <code>#Missing</code> rows</label>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-title"><span class="step-num">03</span> Convert</p>
+    <div class="action-row">
+      <button class="primary" id="btn-convert" disabled>Convert files</button>
+      <div class="progress-wrap">
+        <div class="progress-track" id="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="progress-text">Reading files…</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="results" id="results">
+    <p class="section-title"><span class="step-num">04</span> Results</p>
+    <div class="error-banner" id="error-banner"></div>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-value" id="stat-rows">—</div><div class="stat-label">Rows written</div></div>
+      <div class="stat"><div class="stat-value" id="stat-dims">—</div><div class="stat-label">Dimensions found</div></div>
+      <div class="stat"><div class="stat-value" id="stat-axis">—</div><div class="stat-label">Column axis</div></div>
+    </div>
+    <div class="log-panel" id="log-panel"></div>
+    <div class="downloads">
+      <button class="secondary" id="btn-download-output">↓ Download output file</button>
+      <button class="secondary" id="btn-download-log">↓ Download log</button>
+    </div>
+  </section>
+
+  <footer>
+    <div class="privacy">Your files are processed locally in this browser tab and are never uploaded anywhere.</div>
+    <div>Client-side port of the OutlineToolbox ASO Level0 conversion workflow. See the project README for the parameter reference and the Python CLI version.</div>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // DOM references
+  // ---------------------------------------------------------------------
+  const dzData = document.getElementById('dz-data');
+  const dzDims = document.getElementById('dz-dims');
+  const inputData = document.getElementById('input-data');
+  const inputDims = document.getElementById('input-dims');
+  const dzDataDetail = document.getElementById('dz-data-detail');
+  const dzDimsDetail = document.getElementById('dz-dims-detail');
+
+  const optDelimiter = document.getElementById('opt-delimiter');
+  const optExtract = document.getElementById('opt-extract');
+  const optFilter = document.getElementById('opt-filter');
+  const optDropMissing = document.getElementById('opt-drop-missing');
+
+  const btnConvert = document.getElementById('btn-convert');
+  const progressTrack = document.getElementById('progress-track');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+
+  const results = document.getElementById('results');
+  const errorBanner = document.getElementById('error-banner');
+  const statRows = document.getElementById('stat-rows');
+  const statDims = document.getElementById('stat-dims');
+  const statAxis = document.getElementById('stat-axis');
+  const logPanel = document.getElementById('log-panel');
+  const btnDownloadOutput = document.getElementById('btn-download-output');
+  const btnDownloadLog = document.getElementById('btn-download-log');
+
+  let dataFile = null;
+  let dimFiles = [];
+  let lastOutputText = null;
+  let lastLogText = null;
+
+  // ---------------------------------------------------------------------
+  // Dropzone wiring (click-to-browse + drag & drop) for both zones
+  // ---------------------------------------------------------------------
+  function wireDropzone(zoneEl, inputEl, onFiles) {
+    zoneEl.addEventListener('click', () => inputEl.click());
+    zoneEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputEl.click(); }
+    });
+    inputEl.addEventListener('click', (e) => e.stopPropagation());
+    inputEl.addEventListener('change', () => onFiles(Array.from(inputEl.files)));
+
+    ['dragenter', 'dragover'].forEach(evt =>
+      zoneEl.addEventListener(evt, (e) => { e.preventDefault(); zoneEl.classList.add('drag-over'); })
+    );
+    ['dragleave', 'drop'].forEach(evt =>
+      zoneEl.addEventListener(evt, (e) => { e.preventDefault(); zoneEl.classList.remove('drag-over'); })
+    );
+    zoneEl.addEventListener('drop', (e) => {
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length) onFiles(files);
+    });
+  }
+
+  wireDropzone(dzData, inputData, (files) => {
+    if (!files.length) return;
+    dataFile = files[0];
+    dzDataDetail.textContent = dataFile.name;
+    dzData.classList.add('has-files');
+    updateConvertEnabled();
+  });
+
+  wireDropzone(dzDims, inputDims, (files) => {
+    if (!files.length) return;
+    dimFiles = files;
+    dzDimsDetail.textContent = files.length === 1
+      ? files[0].name
+      : `${files.length} files: ${files.map(f => f.name).join(', ')}`;
+    dzDims.classList.add('has-files');
+    updateConvertEnabled();
+  });
+
+  function updateConvertEnabled() {
+    btnConvert.disabled = !(dataFile && dimFiles.length > 0);
+  }
+
+  // ---------------------------------------------------------------------
+  // Worker (inlined via Blob so this stays a single static file)
+  // ---------------------------------------------------------------------
+  function workerBody() {
+    self.onmessage = function (e) {
+      const { dimFiles, dataText, options } = e.data;
+      try {
+        const result = runConversion(dimFiles, dataText, options, function (percent) {
+          self.postMessage({ type: 'progress', percent: percent });
+        });
+        self.postMessage(Object.assign({ type: 'done' }, result));
+      } catch (err) {
+        self.postMessage({ type: 'error', message: (err && err.message) ? err.message : String(err) });
+      }
+    };
+
+    function stripExt(name) {
+      return name.replace(/\.(csv|txt)$/i, '');
+    }
+
+    var PCMCS_RULE_REGEX = /^R\d\d\d\d$/;
+
+    function resolveDimension(token, memberToDim) {
+      var dim = memberToDim.get(token);
+      if (dim === undefined) {
+        dim = (PCMCS_RULE_REGEX.test(token) || token === 'NoRule') ? 'Rule' : 'Balance';
+      }
+      return dim;
+    }
+
+    function extractTokensAndRawTail(line) {
+      var tokens = [];
+      var pos = 0;
+      var tailStart = 0;
+      while (true) {
+        var first = line.indexOf('"', pos);
+        if (first === -1) { tailStart = pos; break; }
+        var second = line.indexOf('"', first + 1);
+        if (second === -1) { tailStart = first + 1; break; }
+        tokens.push(line.substring(first + 1, second));
+        pos = second + 1;
+      }
+      return [tokens, line.substring(tailStart)];
+    }
+
+    function loadMemberToDimension(dimFiles, log) {
+      var memberToDim = new Map();
+      for (var d = 0; d < dimFiles.length; d++) {
+        var f = dimFiles[d];
+        var dimName = stripExt(f.name);
+        log.push('INFO  Metadata File Found: ' + dimName);
+        log.push('INFO  Dimension PULL: ' + dimName + ' START - (' + f.name + ')');
+        var lines = f.text.split(/\r\n|\r|\n/);
+        for (var i = 0; i < lines.length; i++) {
+          if (i === 0) continue; // header row skipped
+          var line = lines[i];
+          var firstQuote = line.indexOf('"');
+          if (firstQuote === -1) continue;
+          var secondQuote = line.indexOf('"', firstQuote + 1);
+          if (secondQuote === -1) continue;
+          var memberName = line.substring(firstQuote + 1, secondQuote);
+          memberToDim.set(memberName, dimName);
+        }
+        log.push('INFO  Dimension PULL: ' + dimName + ' END - (' + f.name + ')');
+      }
+      return memberToDim;
+    }
+
+    function runConversion(dimFiles, dataText, options, onProgress) {
+      var log = [];
+      log.push('INFO  Log created.');
+
+      var delimiter = options.delimiter;
+      if (delimiter.toLowerCase() === '\\s') delimiter = ' ';
+      var dataToExtractRaw = (options.dataToExtract || '').replace(/\\s/g, ' ');
+      var memberFilter = options.memberFilter || 'COMPARE';
+      var dropMissing = !!options.dropMissing;
+
+      log.push("INFO  Argument = Delimiter: '" + delimiter + "'");
+      log.push("INFO  Argument = DataToExtract: '" + dataToExtractRaw + "'");
+      log.push('INFO  Argument = MemberToFilterOnConvertASOLvl0Data: ' + memberFilter);
+      log.push('INFO  Argument = DropMissing: ' + dropMissing);
+      log.push('INFO  Starting to pull the dimensions from the local metadata files.');
+
+      var memberToDim = loadMemberToDimension(dimFiles, log);
+
+      var dataExtractByDim = new Map();
+      if (dataToExtractRaw.trim() !== '') {
+        var rawMembers = dataToExtractRaw.split(',');
+        for (var m = 0; m < rawMembers.length; m++) {
+          var member = rawMembers[m].trim();
+          if (!member) continue;
+          var dim0 = resolveDimension(member, memberToDim);
+          if (!dataExtractByDim.has(dim0)) dataExtractByDim.set(dim0, []);
+          dataExtractByDim.get(dim0).push(member);
+        }
+      }
+      var noFiltersConfigured = dataExtractByDim.size === 0;
+
+      function passesFilters(pov) {
+        if (noFiltersConfigured) return true;
+        for (var entry of pov.entries()) {
+          var allowed = dataExtractByDim.get(entry[0]);
+          if (allowed) {
+            var ok = false;
+            for (var a = 0; a < allowed.length; a++) {
+              if (allowed[a].toLowerCase() === entry[1].toLowerCase()) { ok = true; break; }
+            }
+            if (!ok) return false;
+          }
+        }
+        return true;
+      }
+
+      var outputLines = [];
+      var rowsWritten = 0;
+
+      function writeRow(pov, value) {
+        if (dropMissing && value === '#Missing') return;
+        if (!passesFilters(pov)) return;
+        var parts = [];
+        for (var val of pov.values()) {
+          var wrap = (delimiter && val.indexOf(delimiter) !== -1) ? '"' : '';
+          parts.push(wrap + val + wrap);
+        }
+        var outputDims = parts.join(delimiter) + delimiter;
+        if (memberFilter.toUpperCase() !== 'COMPARE' && outputDims.toUpperCase().indexOf(memberFilter.toUpperCase()) === -1) return;
+        outputLines.push(outputDims + value);
+        rowsWritten++;
+      }
+
+      log.push('INFO  Start of the File Check');
+
+      var lines = dataText.split(/\r\n|\r|\n/);
+      var intersection = new Map();
+      var columnAxisDim = null;
+      var columnHeaders = [];
+      var totalLines = lines.length;
+      var lastPct = -1;
+
+      for (var idx = 0; idx < totalLines; idx++) {
+        if (onProgress) {
+          var pct = Math.floor((idx / totalLines) * 100);
+          if (pct !== lastPct && pct % 2 === 0) {
+            lastPct = pct;
+            onProgress(pct);
+          }
+        }
+
+        var lineNumber = idx + 1;
+        var line = lines[idx];
+        if (!line.trim()) continue;
+
+        var parsed = extractTokensAndRawTail(line);
+        var tokens = parsed[0];
+        var rawTail = parsed[1];
+        var trimmedTail = rawTail.trim();
+        var valueTokens = trimmedTail === '' ? [] : trimmedTail.split(/\s+/);
+
+        if (lineNumber === 1 && tokens.length > 1 && valueTokens.length === 0) {
+          var dimsFoundSet = new Set();
+          for (var t = 0; t < tokens.length; t++) dimsFoundSet.add(resolveDimension(tokens[t], memberToDim));
+          if (dimsFoundSet.size === 1) {
+            columnAxisDim = dimsFoundSet.values().next().value;
+            columnHeaders = tokens;
+            log.push("INFO  Detected column axis dimension '" + columnAxisDim + "' with " + columnHeaders.length + ' columns: ' + JSON.stringify(columnHeaders));
+            continue;
+          }
+        }
+
+        for (var tk = 0; tk < tokens.length; tk++) {
+          var dim = resolveDimension(tokens[tk], memberToDim);
+          intersection.set(dim, tokens[tk]);
+        }
+
+        if (valueTokens.length === 0) continue;
+
+        if (columnAxisDim !== null) {
+          for (var i2 = 0; i2 < valueTokens.length; i2++) {
+            if (i2 >= columnHeaders.length) {
+              log.push("WARN  Line " + lineNumber + ": more values than known '" + columnAxisDim + "' columns; extra value '" + valueTokens[i2] + "' skipped.");
+              break;
+            }
+            var pov1 = new Map(intersection);
+            pov1.set(columnAxisDim, columnHeaders[i2]);
+            writeRow(pov1, valueTokens[i2]);
+          }
+        } else {
+          if (valueTokens.length === 1) {
+            writeRow(new Map(intersection), valueTokens[0]);
+          } else {
+            for (var i3 = 0; i3 < valueTokens.length; i3++) {
+              var pov2 = new Map(intersection);
+              pov2.set('ColumnIndex', String(i3 + 1));
+              writeRow(pov2, valueTokens[i3]);
+            }
+          }
+        }
+      }
+
+      log.push('INFO  End of the File Check');
+      log.push('INFO  Rows written: ' + rowsWritten);
+      log.push('INFO  End of processing.');
+      if (onProgress) onProgress(100);
+
+      var dimsFoundList = Array.from(new Set(memberToDim.values()));
+
+      return {
+        outputText: outputLines.join('\n') + (outputLines.length ? '\n' : ''),
+        logText: log.join('\n') + '\n',
+        rowsWritten: rowsWritten,
+        columnAxisDim: columnAxisDim,
+        dimensionsFound: dimsFoundList
+      };
+    }
+  }
+
+  function createWorker() {
+    const src = '(' + workerBody.toString() + ')();';
+    const blob = new Blob([src], { type: 'application/javascript' });
+    return new Worker(URL.createObjectURL(blob));
+  }
+
+  // ---------------------------------------------------------------------
+  // Convert button
+  // ---------------------------------------------------------------------
+  btnConvert.addEventListener('click', async () => {
+    errorBanner.classList.remove('visible');
+    results.classList.remove('visible');
+    btnConvert.disabled = true;
+    progressTrack.classList.add('active');
+    progressText.classList.add('active');
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Reading files…';
+
+    try {
+      const dataText = await dataFile.text();
+      const dimFileContents = await Promise.all(
+        dimFiles.map(async (f) => ({ name: f.name, text: await f.text() }))
+      );
+
+      progressText.textContent = 'Converting…';
+
+      const worker = createWorker();
+      const options = {
+        delimiter: optDelimiter.value || '|',
+        dataToExtract: optExtract.value || '',
+        memberFilter: optFilter.value || 'COMPARE',
+        dropMissing: optDropMissing.checked
+      };
+
+      worker.onmessage = (e) => {
+        const msg = e.data;
+        if (msg.type === 'progress') {
+          progressFill.style.width = msg.percent + '%';
+          progressText.textContent = 'Converting… ' + msg.percent + '%';
+        } else if (msg.type === 'done') {
+          progressFill.style.width = '100%';
+          progressText.textContent = 'Done.';
+          showResults(msg);
+          worker.terminate();
+          btnConvert.disabled = false;
+        } else if (msg.type === 'error') {
+          showError(msg.message);
+          worker.terminate();
+          btnConvert.disabled = false;
+        }
+      };
+
+      worker.postMessage({ dimFiles: dimFileContents, dataText: dataText, options: options });
+    } catch (err) {
+      showError(err && err.message ? err.message : String(err));
+      btnConvert.disabled = false;
+    }
+  });
+
+  function showError(message) {
+    errorBanner.textContent = 'Something went wrong: ' + message;
+    errorBanner.classList.add('visible');
+    results.classList.add('visible');
+    progressTrack.classList.remove('active');
+    progressText.classList.remove('active');
+  }
+
+  function showResults(result) {
+    results.classList.add('visible');
+    statRows.textContent = result.rowsWritten.toLocaleString();
+    statDims.textContent = result.dimensionsFound.length;
+    statAxis.textContent = result.columnAxisDim || '—';
+
+    logPanel.innerHTML = result.logText
+      .split('\n')
+      .map(line => {
+        if (line.startsWith('WARN')) return '<span class="warn">' + escapeHtml(line) + '</span>';
+        if (line.startsWith('ERROR')) return '<span class="err">' + escapeHtml(line) + '</span>';
+        return escapeHtml(line);
+      })
+      .join('\n');
+
+    lastOutputText = result.outputText;
+    lastLogText = result.logText;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
+
+  btnDownloadOutput.addEventListener('click', () => {
+    if (lastOutputText !== null) downloadText('output.txt', lastOutputText);
+  });
+  btnDownloadLog.addEventListener('click', () => {
+    if (lastLogText !== null) downloadText('conversion_log.txt', lastLogText);
+  });
+})();
+</script>
+</body>
+</html>
